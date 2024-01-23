@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Pokemon } from "./pokemon";
 import { useState } from "react";
+import { Description } from "./characteristic";
 
 function generateRandomPokemon() {
   const min = 1;
@@ -33,7 +34,16 @@ export default function Page() {
         `https://pokeapi.co/api/v2/pokemon/${searchInput || randomId}/`
       ).then((res) => res.json()),
   });
-  
+
+  const {
+    data: dataCharacteristic,
+  } = useQuery({
+    queryKey: ["pokemon", "type", randomId],
+    queryFn: () =>
+      fetch(
+        `https://pokeapi.co/api/v2/characteristic/${randomId}/`
+      ).then((res) => res.json()),
+  });
 
   if (isLoading) {
     return <ActivityIndicator style={styles.container} size="large" />;
@@ -62,8 +72,13 @@ export default function Page() {
     );
   }
 
-  const pokemon = dataPokemon as Pokemon;
+  
 
+  const pokemon = dataPokemon as Pokemon;
+  const characteristic = dataCharacteristic as Description;
+
+  console.log(characteristic);
+  
   return (
     <View style={styles.container}>
       <Image
@@ -74,11 +89,8 @@ export default function Page() {
         <Text style={styles.textContainer}>{pokemon.name}</Text>
         <Text style={styles.textContainer}>{pokemon.types[0].type.name}</Text>
       </View>
-      <View style={styles.nameType}>
-        <Text style={styles.textContainer}>{pokemon.name}</Text>
-      </View>
       <View>
-        <Text style={styles.textContainer}>{pokemon.id}</Text>
+        <Text style={styles.textContainer}>{characteristic.description}</Text>
       </View>
       <TextInput
         style={styles.input}
