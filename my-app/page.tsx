@@ -7,10 +7,17 @@ import {
   Button,
   ActivityIndicator,
   TextInput,
+  Pressable,
+  FlatList,
+  Animated,
+  TouchableOpacity,
 } from "react-native";
 import { Pokemon } from "./pokemon";
 import { useState } from "react";
-import { Description } from "./characteristic";
+import { LocationAreaEncounters } from "./locationEncounters";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import MySafeAreaView from "./MySafeAreaView";
+import { RectButton, Swipeable } from "react-native-gesture-handler";
 
 function generateRandomPokemon() {
   const min = 1;
@@ -22,11 +29,13 @@ function generateRandomPokemon() {
 export default function Page() {
   const [randomId, setRandomId] = useState(generateRandomPokemon());
   const [searchInput, setSearchInput] = useState("");
+  const [starSelected, setStarSelected] = useState(false);
+  const [favorites, setFavorites] = useState<Pokemon[]>([]);
 
   const {
     data: dataPokemon,
-    isLoading,
-    error,
+    isLoading: isLoadingPokemon,
+    error: errorPokemon,
   } = useQuery({
     queryKey: ["pokemon", "type", randomId],
     queryFn: () =>
@@ -36,20 +45,22 @@ export default function Page() {
   });
 
   const {
-    data: dataCharacteristic,
+    data: LocationEncounters,
+    isLoading: isLoadingLocationEncounters,
+    error: errorLocationEncounters,
   } = useQuery({
-    queryKey: ["pokemon", "type", randomId],
+    queryKey: ["pokemon", "encounters", randomId],
     queryFn: () =>
-      fetch(
-        `https://pokeapi.co/api/v2/characteristic/${randomId}/`
-      ).then((res) => res.json()),
+      fetch(`https://pokeapi.co/api/v2/pokemon/${randomId}/encounters`).then(
+        (res) => res.json()
+      ),
   });
 
-  if (isLoading) {
+  if (isLoadingPokemon || isLoadingLocationEncounters) {
     return <ActivityIndicator style={styles.container} size="large" />;
   }
 
-  if (error) {
+  if (errorPokemon || errorLocationEncounters) {
     return (
       <View style={styles.container}>
         <Text style={styles.textContainer}>
@@ -72,45 +83,100 @@ export default function Page() {
     );
   }
 
-  
-
   const pokemon = dataPokemon as Pokemon;
-  const characteristic = dataCharacteristic as Description;
+  const locationEncounters = LocationEncounters as LocationAreaEncounters;
 
-  console.log(characteristic);
-  
-  return (
-    <View style={styles.container}>
-      <Image
-        style={styles.image}
-        source={{ uri: pokemon.sprites.front_default }}
-      />
-      <View style={styles.nameType}>
-        <Text style={styles.textContainer}>{pokemon.name}</Text>
-        <Text style={styles.textContainer}>{pokemon.types[0].type.name}</Text>
-      </View>
-      <View>
-        <Text style={styles.textContainer}>{characteristic.description}</Text>
-      </View>
-      <TextInput
-        style={styles.input}
-        placeholder="Whitch Pokemon?"
-        onChangeText={(text) => setSearchInput(text)}
-        value={searchInput}
-      />
-      <Button
-        title="Generate"
-        onPress={() => {
-          const RandomId = generateRandomPokemon();
-          setRandomId(RandomId);
+  const renderRightActions = (
+    name: string
+  ) => {
+    return (
+      <RectButton
+        style={styles.favoriteCardsDelete}
+        onPress={() =>{
+          setFavorites(favorites.filter((pokemon) => pokemon.name !== name))
         }}
-      />
-      
-    </View>
+      >
+        <Text style={{ color: "#fff", fontWeight: "bold" }}>Delete</Text>
+      </RectButton>
+    );
+  };
+
+  return (
+    <MySafeAreaView style={styles.fullscreen}>
+      <View style={styles.container}>
+        <Image
+          style={styles.image}
+          source={{ uri: pokemon.sprites.front_default }}
+        />
+        <View style={styles.nameType}>
+          <Text style={styles.textContainer}>{pokemon.name}</Text>
+          <Text style={styles.textContainer}>{pokemon.types[0].type.name}</Text>
+        </View>
+        <View>
+          <Text style={styles.textContainer}>
+            {locationEncounters[0]?.location_area?.name}
+          </Text>
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Whitch Pokemon?"
+          onChangeText={(text) => setSearchInput(text)}
+          value={searchInput}
+        />
+        <Button
+          title="Generate"
+          onPress={() => {
+            const RandomId = generateRandomPokemon();
+            setRandomId(RandomId);
+            setStarSelected(false);
+          }}
+        />
+        <Pressable
+          onPress={() => {
+            console.log("pressed");
+            setStarSelected(!starSelected);
+            if (starSelected)
+              setFavorites(favorites.filter((pokemon) => pokemon.name));
+            else {
+              if (!favorites.some((favorite) => favorite.name === pokemon.name))
+                setFavorites([...favorites, pokemon]);
+            }
+          }}
+        >
+          <Ionicons
+            name={starSelected ? "star" : "star-outline"}
+            size={24}
+            color="black"
+          />
+        </Pressable>
+
+        <FlatList
+          style={styles.favoriteList}
+          data={favorites}
+          keyExtractor={(pokemon) => pokemon.name}
+          renderItem={({ item: pokemon }) => (
+            <Swipeable renderRightActions={() => renderRightActions (pokemon.name)}>
+              <View style={styles.favoriteCards}>
+                <Image
+                  source={{ uri: pokemon.sprites.front_default }}
+                  style={{ width: 60, height: 60 }}
+                />
+                <Text>{pokemon.name}</Text>
+                <Text>{pokemon.id}</Text>
+              </View>
+            </Swipeable>
+          )}
+        />
+      </View>
+    </MySafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  fullscreen: {
+    marginTop: 50,
+    height: "100%",
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
@@ -118,8 +184,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   image: {
-    width: 100,
-    height: 100,
+    width: 200,
+    height: 200,
   },
   nameType: {
     flexDirection: "row",
@@ -134,5 +200,24 @@ const styles = StyleSheet.create({
     margin: 12,
     borderWidth: 1,
     padding: 10,
+  },
+  favoriteList: {
+    width: "100%",
+    padding: 10,
+  },
+  favoriteCardsDelete: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    
+    padding: 10,
+    backgroundColor: "red",
+  },
+  favoriteCards: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  
+    backgroundColor: "#fff",
   },
 });

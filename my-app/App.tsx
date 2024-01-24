@@ -1,6 +1,8 @@
 import { StyleSheet } from "react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Page from "./page";
+import MySafeAreaView from "./MySafeAreaView";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const queryClient = new QueryClient();
 
@@ -11,12 +13,20 @@ export default function App() {
   // })
   return (
     <QueryClientProvider client={queryClient}>
-      <Page />
+      <GestureHandlerRootView>
+        <MySafeAreaView edges={["top"]} style={styles.fullScreen}>
+          <Page />
+        </MySafeAreaView>
+      </GestureHandlerRootView>
     </QueryClientProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  fullScreen: {
+    height: "100%",
+  },
+
   container: {
     flex: 1,
     backgroundColor: "#fff",
