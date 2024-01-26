@@ -9,8 +9,7 @@ import {
   TextInput,
   Pressable,
   FlatList,
-  Animated,
-  TouchableOpacity,
+  Switch,
 } from "react-native";
 import { Pokemon } from "./pokemon";
 import { useState } from "react";
@@ -31,6 +30,9 @@ export default function Page() {
   const [searchInput, setSearchInput] = useState("");
   const [starSelected, setStarSelected] = useState(false);
   const [favorites, setFavorites] = useState<Pokemon[]>([]);
+  const [isEnabled, setIsEnabled] = useState(false);
+  const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+  const [shinyPokemon, setShinyPokemon] = useState<String[]>([]);
 
   const {
     data: dataPokemon,
@@ -38,10 +40,14 @@ export default function Page() {
     error: errorPokemon,
   } = useQuery({
     queryKey: ["pokemon", "type", randomId],
-    queryFn: () =>
-      fetch(
-        `https://pokeapi.co/api/v2/pokemon/${searchInput || randomId}/`
-      ).then((res) => res.json()),
+    queryFn: () => {
+      setSearchInput("");
+      return fetch(
+        `https://pokeapi.co/api/v2/pokemon/${
+          searchInput.toLowerCase() || randomId
+        }/`
+      ).then((res) => res.json());
+    },
   });
 
   const {
@@ -86,14 +92,12 @@ export default function Page() {
   const pokemon = dataPokemon as Pokemon;
   const locationEncounters = LocationEncounters as LocationAreaEncounters;
 
-  const renderRightActions = (
-    name: string
-  ) => {
+  const renderRightActions = (name: string) => {
     return (
       <RectButton
         style={styles.favoriteCardsDelete}
-        onPress={() =>{
-          setFavorites(favorites.filter((pokemon) => pokemon.name !== name))
+        onPress={() => {
+          setFavorites(favorites.filter((pokemon) => pokemon.name !== name));
         }}
       >
         <Text style={{ color: "#fff", fontWeight: "bold" }}>Delete</Text>
@@ -104,10 +108,32 @@ export default function Page() {
   return (
     <MySafeAreaView style={styles.fullscreen}>
       <View style={styles.container}>
-        <Image
-          style={styles.image}
-          source={{ uri: pokemon.sprites.front_default }}
+        {isEnabled ? (
+          <Image
+            style={styles.image}
+            source={{ uri: pokemon.sprites.front_shiny }}
+          />
+        ) : (
+          <Image
+            style={styles.image}
+            source={{ uri: pokemon.sprites.front_default }}
+          />
+        )}
+        <Switch
+          ios_backgroundColor="#3e3e3e"
+          onValueChange={() => {
+            toggleSwitch();
+            if (isEnabled) {
+              setShinyPokemon(
+                shinyPokemon.filter((name) => name !== pokemon.name)
+              );
+            } else {
+              setShinyPokemon([...shinyPokemon, pokemon.name]);
+            }
+          }}
+          value={isEnabled}
         />
+
         <View style={styles.nameType}>
           <Text style={styles.textContainer}>{pokemon.name}</Text>
           <Text style={styles.textContainer}>{pokemon.types[0].type.name}</Text>
@@ -127,6 +153,7 @@ export default function Page() {
           title="Generate"
           onPress={() => {
             const RandomId = generateRandomPokemon();
+            setIsEnabled(false);
             setRandomId(RandomId);
             setStarSelected(false);
           }}
@@ -155,10 +182,14 @@ export default function Page() {
           data={favorites}
           keyExtractor={(pokemon) => pokemon.name}
           renderItem={({ item: pokemon }) => (
-            <Swipeable renderRightActions={() => renderRightActions (pokemon.name)}>
+            <Swipeable
+              renderRightActions={() => renderRightActions(pokemon.name)}
+            >
               <View style={styles.favoriteCards}>
                 <Image
-                  source={{ uri: pokemon.sprites.front_default }}
+                  source={{
+                    uri: shinyPokemon.includes(pokemon.name) ? pokemon.sprites.front_shiny : pokemon.sprites.front_default,
+                  }}
                   style={{ width: 60, height: 60 }}
                 />
                 <Text>{pokemon.name}</Text>
@@ -203,13 +234,14 @@ const styles = StyleSheet.create({
   },
   favoriteList: {
     width: "100%",
+    marginBottom: 70,
     padding: 10,
   },
   favoriteCardsDelete: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    
+
     padding: 10,
     backgroundColor: "red",
   },
@@ -217,7 +249,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  
+
     backgroundColor: "#fff",
   },
 });
